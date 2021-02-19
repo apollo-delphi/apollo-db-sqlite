@@ -15,29 +15,60 @@ type
   protected
     function GetRenameTableSQL(const aOldTableName, aNewTableName: string): string;
   public
-    function GetModifyTableSQL(const aOldTableName: string; const aTableDef: TTableDef): TStringList; override;
+    function GetModifyTableSQL(const aTableDef: TTableDef): TStringList; override;
   end;
 
 implementation
 
 uses
+  Apollo_Helpers,
+  FireDAC.Phys.Intf,
   System.SysUtils;
 
 { TSQLiteEngine }
 
-function TSQLiteEngine.GetModifyTableSQL(const aOldTableName: string;
-  const aTableDef: TTableDef): TStringList;
+function TSQLiteEngine.GetModifyTableSQL(const aTableDef: TTableDef): TStringList;
 var
   FieldDef: TFieldDef;
+  FieldNames: TArray<string>;
+  FKeyDef: TFKeyDef;
+  i: Integer;
   NeedToModify: Boolean;
   NewTableDef: TTableDef;
+  OldFieldNames: TArray<string>;
+  SQLList: TStringList;
 begin
   Result := TStringList.Create;
   NeedToModify := False;
 
   for FieldDef in aTableDef.FieldDefs do
   begin
-    if DifferMetadata(aOldTableName, FieldDef) <> mdEqual then
+    if DifferMetadata(aTableDef.OldTableName, FieldDef) <> mdEqual then
+      NeedToModify := True;
+  end;
+
+  ForEachMetadata(aTableDef.OldTableName, mkTableFields, procedure(aDMetaInfoQuery: TFDMetaInfoQuery)
+    var
+      FieldDef2: TFieldDef;
+      FieldExists: Boolean;
+    begin
+      if NeedToModify then
+        Exit;
+
+      FieldExists := False;
+      for FieldDef2 in aTableDef.FieldDefs do
+      begin
+        if aDMetaInfoQuery.FieldByName('COLUMN_NAME').AsString = FieldDef2.OldFieldName then
+          FieldExists := True;
+      end;
+      if not FieldExists then
+        NeedToModify := True;
+    end
+  );
+
+  for FKeyDef in aTableDef.FKeyDefs do
+  begin
+    if DifferMetadata(aTableDef.OldTableName, FKeyDef) <> mdEqual then
       NeedToModify := True;
   end;
 
@@ -47,17 +78,41 @@ begin
 
     NewTableDef := aTableDef;
     NewTableDef.TableName := 'NEW_' + NewTableDef.TableName;
-    Result.Add(GetCreateTableSQL(NewTableDef));
 
-    Result.Add(Format('DROP TABLE %s;', [aOldTableName]));
+    SQLList := GetCreateTableSQL(NewTableDef);
+    try
+      for i := 0 to SQLList.Count - 1 do
+        Result.Add(SQLList[i]);
+    finally
+      SQLList.Free;
+    end;
+
+    FieldNames := [];
+    OldFieldNames := [];
+    for FieldDef in NewTableDef.FieldDefs do
+      if not FieldDef.OldFieldName.IsEmpty then
+      begin
+        FieldNames := FieldNames + [FieldDef.FieldName];
+        OldFieldNames := OldFieldNames + [FieldDef.OldFieldName];
+      end;
+
+    if FieldNames.Count > 0 then
+      Result.Add(Format('INSERT INTO %s (%s) SELECT %s FROM %s;', [
+        NewTableDef.TableName,
+        FieldNames.CommaText,
+        OldFieldNames.CommaText,
+        NewTableDef.OldTableName
+      ]));
+
+    Result.Add(Format('DROP TABLE %s;', [NewTableDef.OldTableName]));
 
     Result.Add(GetRenameTableSQL(NewTableDef.TableName, aTableDef.TableName));
 
     Result.Add('PRAGMA FOREIGN_KEYS = ON;');
   end;
 
-  if not NeedToModify and (aTableDef.TableName <> aOldTableName) then
-    Result.Add(GetRenameTableSQL(aOldTableName, aTableDef.TableName));
+  if not NeedToModify and (aTableDef.TableName <> aTableDef.OldTableName) then
+    Result.Add(GetRenameTableSQL(aTableDef.OldTableName, aTableDef.TableName));
 end;
 
 function TSQLiteEngine.GetRenameTableSQL(const aOldTableName,
