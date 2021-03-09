@@ -91,6 +91,8 @@
         </DelphiCompile>
         <DCCReference Include="tstApollo_DB_SQLite.pas"/>
         <DCCReference Include="Apollo_DB_SQLite.pas"/>
+        <DCCReference Include="..\Vendors\Apollo_DB_Core\Apollo_DB_Core.pas"/>
+        <DCCReference Include="..\Vendors\Apollo_Helpers\Apollo_Helpers.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -141,14 +143,14 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="..\BIN\Win32\Debug\Apollo_DB_SQLite_Test.exe" Configuration="Debug" Class="ProjectOutput">
-                    <Platform Name="Win32">
-                        <RemoteName>Apollo_DB_SQLite_Test.exe</RemoteName>
+                <DeployFile LocalName="$(BDS)\Redist\osx32\libcgsqlite3.dylib" Class="DependencyModule">
+                    <Platform Name="OSX32">
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="$(BDS)\Redist\osx32\libcgsqlite3.dylib" Class="DependencyModule">
-                    <Platform Name="OSX32">
+                <DeployFile LocalName="..\BIN\Win32\Debug\Apollo_DB_SQLite_Test.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win32">
+                        <RemoteName>Apollo_DB_SQLite_Test.exe</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

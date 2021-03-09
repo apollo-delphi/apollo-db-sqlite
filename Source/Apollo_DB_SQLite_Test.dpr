@@ -8,11 +8,13 @@ uses
   DUnitX.Loggers.Xml.NUnit,
   DUnitX.TestFramework,
   tstApollo_DB_SQLite in 'tstApollo_DB_SQLite.pas',
-  Apollo_DB_SQLite in 'Apollo_DB_SQLite.pas';
+  Apollo_DB_SQLite in 'Apollo_DB_SQLite.pas',
+  Apollo_DB_Core in '..\Vendors\Apollo_DB_Core\Apollo_DB_Core.pas',
+  Apollo_Helpers in '..\Vendors\Apollo_Helpers\Apollo_Helpers.pas';
 
 begin
   Application.Initialize;
   Application.Title := 'DUnitX';
-  AApplication.CreateForm(TGUIVCLTestRunner, GUIVCLTestRunner);
-  pplication.Run;
+  Application.CreateForm(TGUIVCLTestRunner, GUIVCLTestRunner);
+  Application.Run;
 end.
