@@ -32,7 +32,6 @@ var
   FieldDef: TFieldDef;
   FieldNames: TArray<string>;
   FKeyDef: TFKeyDef;
-  i: Integer;
   NeedToModify: Boolean;
   NewTableDef: TTableDef;
   OldFieldNames: TArray<string>;
@@ -76,13 +75,24 @@ begin
   begin
     Result.Add('PRAGMA FOREIGN_KEYS = OFF;');
 
+    SQLList := TStringList.Create;
+    try
+      ForEachMetadata(aTableDef.OldTableName, mkIndexes, procedure(aDMetaInfoQuery: TFDMetaInfoQuery)
+        begin
+          SQLList.Add(Format('DROP INDEX %s;', [aDMetaInfoQuery.FieldByName('INDEX_NAME').AsString]));
+        end
+      );
+      Result.AddStrings(SQLList);
+    finally
+      SQLList.Free;
+    end;
+
     NewTableDef := aTableDef;
     NewTableDef.TableName := 'NEW_' + NewTableDef.TableName;
 
     SQLList := GetCreateTableSQL(NewTableDef);
     try
-      for i := 0 to SQLList.Count - 1 do
-        Result.Add(SQLList[i]);
+      Result.AddStrings(SQLList);
     finally
       SQLList.Free;
     end;
