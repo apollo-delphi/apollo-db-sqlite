@@ -1,4 +1,3 @@
-//for testing 14 july 2021 10:31
 unit Apollo_DB_SQLite;
 
 interface
