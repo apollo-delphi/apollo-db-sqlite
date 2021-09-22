@@ -16,6 +16,8 @@ type
     function GetRenameTableSQL(const aOldTableName, aNewTableName: string): string;
   public
     function GetModifyTableSQL(const aTableDef: TTableDef): TStringList; override;
+    procedure DisableForeignKeys; override;
+    procedure EnableForeignKeys; override;
   end;
 
 implementation
@@ -26,6 +28,20 @@ uses
   System.SysUtils;
 
 { TSQLiteEngine }
+
+procedure TSQLiteEngine.DisableForeignKeys;
+begin
+  inherited;
+
+  ExecSQL('PRAGMA foreign_keys = OFF;');
+end;
+
+procedure TSQLiteEngine.EnableForeignKeys;
+begin
+  inherited;
+
+  ExecSQL('PRAGMA foreign_keys = ON;');
+end;
 
 function TSQLiteEngine.GetModifyTableSQL(const aTableDef: TTableDef): TStringList;
 var
@@ -73,8 +89,6 @@ begin
 
   if NeedToModify then
   begin
-    Result.Add('PRAGMA FOREIGN_KEYS = OFF;');
-
     SQLList := TStringList.Create;
     try
       ForEachMetadata(aTableDef.OldTableName, mkIndexes, procedure(aDMetaInfoQuery: TFDMetaInfoQuery)
@@ -117,8 +131,6 @@ begin
     Result.Add(Format('DROP TABLE %s;', [NewTableDef.OldTableName]));
 
     Result.Add(GetRenameTableSQL(NewTableDef.TableName, aTableDef.TableName));
-
-    Result.Add('PRAGMA FOREIGN_KEYS = ON;');
   end;
 
   if not NeedToModify and (aTableDef.TableName <> aTableDef.OldTableName) then
