@@ -10,6 +10,8 @@ uses
 
 type
   TSQLiteEngine = class(TDBEngine)
+  private
+    function DoNeedModify(const aTableDef: TTableDef): Boolean;
   protected
     procedure SetConnectParams(aConnection: TFDConnection); override;
   protected
@@ -36,6 +38,42 @@ begin
   ExecSQL('PRAGMA foreign_keys = OFF;');
 end;
 
+function TSQLiteEngine.DoNeedModify(const aTableDef: TTableDef): Boolean;
+var
+  FieldDef: TFieldDef;
+  FKeyDef: TFKeyDef;
+  IndexDef: TIndexDef;
+begin
+  Result := False;
+
+  for FieldDef in aTableDef.FieldDefs do
+  begin
+    if DifferMetadata(aTableDef.OldTableName, FieldDef) <> mdEqual then
+      Exit(True);
+  end;
+
+  if Length(DifferMetadataForDrop(aTableDef.OldTableName, aTableDef.FieldDefs)) > 0 then
+    Exit(True);
+
+  for FKeyDef in aTableDef.FKeyDefs do
+  begin
+    if DifferMetadata(aTableDef.OldTableName, FKeyDef) <> mdEqual then
+      Exit(True);
+  end;
+
+  if Length(DifferMetadataForDrop(aTableDef.OldTableName, aTableDef.FKeyDefs)) > 0 then
+    Exit(True);
+
+  for IndexDef in aTableDef.IndexDefs do
+  begin
+    if DifferMetadata(aTableDef.OldTableName, IndexDef) <> mdEqual then
+      Exit(True);
+  end;
+
+  if Length(DifferMetadataForDrop(aTableDef.OldTableName, aTableDef.IndexDefs)) > 0 then
+    Exit(True);
+end;
+
 procedure TSQLiteEngine.EnableForeignKeys;
 begin
   inherited;
@@ -47,45 +85,13 @@ function TSQLiteEngine.GetModifyTableSQL(const aTableDef: TTableDef): TStringLis
 var
   FieldDef: TFieldDef;
   FieldNames: TArray<string>;
-  FKeyDef: TFKeyDef;
   NeedToModify: Boolean;
   NewTableDef: TTableDef;
   OldFieldNames: TArray<string>;
   SQLList: TStringList;
 begin
   Result := TStringList.Create;
-  NeedToModify := False;
-
-  for FieldDef in aTableDef.FieldDefs do
-  begin
-    if DifferMetadata(aTableDef.OldTableName, FieldDef) <> mdEqual then
-      NeedToModify := True;
-  end;
-
-  ForEachMetadata(aTableDef.OldTableName, mkTableFields, procedure(aDMetaInfoQuery: TFDMetaInfoQuery)
-    var
-      FieldDef2: TFieldDef;
-      FieldExists: Boolean;
-    begin
-      if NeedToModify then
-        Exit;
-
-      FieldExists := False;
-      for FieldDef2 in aTableDef.FieldDefs do
-      begin
-        if aDMetaInfoQuery.FieldByName('COLUMN_NAME').AsString = FieldDef2.OldFieldName then
-          FieldExists := True;
-      end;
-      if not FieldExists then
-        NeedToModify := True;
-    end
-  );
-
-  for FKeyDef in aTableDef.FKeyDefs do
-  begin
-    if DifferMetadata(aTableDef.OldTableName, FKeyDef) <> mdEqual then
-      NeedToModify := True;
-  end;
+  NeedToModify := DoNeedModify(aTableDef);
 
   if NeedToModify then
   begin
@@ -116,8 +122,8 @@ begin
     for FieldDef in NewTableDef.FieldDefs do
       if not FieldDef.OldFieldName.IsEmpty then
       begin
-        FieldNames := FieldNames + [FieldDef.FieldName];
-        OldFieldNames := OldFieldNames + [FieldDef.OldFieldName];
+        FieldNames := FieldNames + [Format('`%s`', [FieldDef.FieldName])];
+        OldFieldNames := OldFieldNames + [Format('`%s`', [FieldDef.OldFieldName])];
       end;
 
     if FieldNames.Count > 0 then
